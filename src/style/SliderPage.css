@@ -1,0 +1,13 @@
+.sliderContainer {
+    margin-top: 4em;
+}
+
+.valueText {
+  color: #000066;
+  font-weight: 600;
+  margin: 5px 5px 0;
+}
+
+.sliderWrapper{
+  margin-top: 1em;
+}
