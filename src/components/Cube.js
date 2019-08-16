@@ -5,12 +5,17 @@ import THREE from '../three'
 import 'three/examples/js/controls/OrbitControls';
 import {API} from '../App';
 
+function getKeyValueFromMap(obj, key, path) {
+    return key + '("' + obj[key][path] + '")';
+}
+
 class Cube extends Component {
     constructor(props) {
         super(props)
         this.state = {
-            low: [],
-            high: []
+            axisX: null,
+            axisY: null,
+            axisZ: null,
         }
     }
 
@@ -23,8 +28,9 @@ class Cube extends Component {
     }
 
     // Every time we are provided with new ranges Prop triggers textures/images reloading.
-    componentDidUpdate(prevProps) {
+    componentDidUpdate(prevProps, prevState) {
         if (prevProps.ranges !== this.props.ranges) {
+            this.cubeRedimension();
             this.loadImages();
         }
     }
@@ -36,31 +42,54 @@ class Cube extends Component {
                 spaces: 4
             });
             const json = JSON.parse(xmltojson);
-            const low = json.elements[0].elements[1].elements[0].elements[0].elements[0].elements[0].elements[0].text;
+            const set1 = json.elements[0].elements[1].elements[0].elements[3].elements[0].elements[0].elements[0].text;
+            const set2 = json.elements[0].elements[1].elements[0].elements[4].elements[0].elements[0].elements[0].text;
+
             const high = json.elements[0].elements[1].elements[0].elements[0].elements[0].elements[1].elements[0].text;
-            const lowpoints = low.split(' ');
-            const highpoints = high.split(' ');
-            for (let i = 0; i < highpoints.length; i++) {
-                highpoints[i] = + highpoints[i];
+            const low = json.elements[0].elements[1].elements[0].elements[0].elements[0].elements[0].elements[0].text;
+
+            const highValues = high.split(' ');
+            const lowValues = low.split(' ');
+
+            const lat = parseInt(highValues[0], 10) - parseInt(lowValues[0], 10);
+            const long = parseInt(highValues[1], 10) - parseInt(lowValues[1], 10);
+            const z = parseInt(highValues[2], 10) - parseInt(lowValues[2], 10);
+
+            if (set1 && set2) {
+                const set1Values = set1.split(' ');
+                const set2Values = set2.split(' ');
+                const newState = {};
+                if (set1Values[0] !== "0") {
+                    newState.axisX = Math.abs(parseFloat(set1Values[0]));
+                }
+                if (set1Values[1] !== "0") {
+                    newState.axisY = Math.abs(parseFloat(set1Values[1]));
+                }
+                if (set2Values[0] !== "0") {
+                    newState.axisX = Math.abs(parseFloat(set2Values[0]));
+                }
+                if (set2Values[1] !== "0") {
+                    newState.axisY = Math.abs(parseFloat(set2Values[1]));
+                }
+                newState.axisZ = z;
+                this.setState(newState, () => {
+                    this.cube.scale.set(lat, long, z);
+                    this.camera.position.z = long;
+                });
             }
-            for (let j = 0; j < lowpoints.length; j++) {
-                lowpoints[j] = + lowpoints[j];
-            }
-            this.setState({
-                low: lowpoints,
-                high: highpoints
-            }, () => {
-                this.cubeRedimension();
-            });
+
         }).catch(err => console.log(err));
     }
 
     cubeRedimension = () => {
-        const lat = this.state.high[0] - this.state.low[0];
-        const long = this.state.high[1] - this.state.low[1];
-        const unix = this.state.high[2] - this.state.low[2];
-        this.cube.geometry.scale(lat, long, unix);
-        this.camera.position.z = long;
+        const { ranges, rangeKeys } = this.props;
+        const lat = (ranges[rangeKeys[0]].end - ranges[rangeKeys[0]].start) / this.state.axisX;
+        const long = (ranges[rangeKeys[1]].end - ranges[rangeKeys[1]].start) / this.state.axisY;
+
+        if (this.state.axisX !== null || this.state.axisY !== null) {
+            this.cube.scale.set(lat, long, this.state.axisZ || 5);
+            this.camera.position.z = long;
+        }
     }
 
     drawInitialCube = () => {
@@ -82,7 +111,7 @@ class Cube extends Component {
         controls.update();
 
         scene.add(cube);
-        renderer.setClearColor('#000000');
+        renderer.setClearColor('#ffffff');
         renderer.setSize(width, height);
 
         this.scene = scene;
@@ -98,18 +127,24 @@ class Cube extends Component {
     }
 
     loadImages = () => {
-        const {ranges, keyForSet, query} = this.props;
+        const {ranges, keyForSet, query, rangeKeys} = this.props;
         const textureLoader = new THREE.TextureLoader();
         const imageFormat = '&FORMAT=image/png';
         textureLoader.crossOrigin = "Anonymous";
 
         // We construct url's by reusing the passed (query, keyForSet) from the form and the ranges from slider component.
-        const unixStartImage = API + query + '&' + keyForSet + '=' + 'unix("' + ranges.unix.start + '")' + imageFormat;
-        const unixEndImage = API + query + '&' + keyForSet + '=' + 'unix("' + ranges.unix.end + '")' + imageFormat;
-        const longStart = API + query + '&' + keyForSet + '=' + 'Long(' + ranges.longitude.start + ')' + imageFormat;
-        const longEnd = API + query + '&' + keyForSet + '=' + 'Long(' + ranges.longitude.end + ')' + imageFormat;
-        const latStart = API + query + '&' + keyForSet + '=' + 'Lat(' + ranges.latitude.start + ')' + imageFormat;
-        const latEnd = API + query + '&' + keyForSet + '=' + 'Lat(' + ranges.latitude.end + ')' + imageFormat;
+        const latStart = API + query + '&' + keyForSet + '=' +
+            getKeyValueFromMap(ranges, rangeKeys[0], 'start') + imageFormat;
+        const latEnd = API + query + '&' + keyForSet + '=' +
+            getKeyValueFromMap(ranges, rangeKeys[0], 'end') + imageFormat;
+        const longStart = API + query + '&' + keyForSet + '=' +
+            getKeyValueFromMap(ranges, rangeKeys[1], 'start') + imageFormat;
+        const longEnd = API + query + '&' + keyForSet + '=' +
+            getKeyValueFromMap(ranges, rangeKeys[1], 'end') + imageFormat;
+        const unixStartImage = API + query + '&' + keyForSet + '=' +
+            getKeyValueFromMap(ranges, rangeKeys[2], 'start') + imageFormat;
+        const unixEndImage = API + query + '&' + keyForSet + '=' +
+            getKeyValueFromMap(ranges, rangeKeys[2], 'end') + imageFormat;
 
         const texture0 = textureLoader.load(longStart);
         const texture1 = textureLoader.load(longEnd);

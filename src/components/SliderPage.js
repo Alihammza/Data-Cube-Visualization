@@ -13,34 +13,10 @@ export default class SliderControlled extends Component {
     constructor(props) {
         super(props);
         this.state = {
-            ranges: {
-                longitude: {
-                    start: 0,
-                    end: 0
-                },
-                latitude: {
-                    start: 0,
-                    end: 0
-                },
-                unix: {
-                    start: 0,
-                    end: 0
-                }
-            },
-            values: {
-                longitude: {
-                    start: 0,
-                    end: 0
-                },
-                latitude: {
-                    start: 0,
-                    end: 0
-                },
-                unix: {
-                    start: 0,
-                    end: 0
-                }
-            }
+            coefficients: null,
+            rangeKeys: null,
+            ranges: null,
+            values: null
         };
     }
 
@@ -51,46 +27,55 @@ export default class SliderControlled extends Component {
             let xmltojson = JSON.parse(convert.xml2json(resp.data,{compact:false,spaces:4}));
             const lower = xmltojson.elements[0].elements[0].elements[0].elements[0].elements[0].text;
             const upper = xmltojson.elements[0].elements[0].elements[0].elements[1].elements[0].text;
+            const rangeKeys = (xmltojson.elements[0].elements[1].elements[0].elements[1].elements[0].text).split(' ');
             const startValues = lower.split(' ');
             const endValues = upper.split(' ');
-            const minLongitude = startValues[1];
-            const maxLongitude = endValues[1];
             const minLatitude = startValues[0];
             const maxLatitude = endValues[0];
-            const minUnix = startValues[2];
-            const maxUnix = endValues[2];
+            const minLongitude = startValues[1];
+            const maxLongitude = endValues[1];
+            const coefficients = (xmltojson.elements[0].elements[1].elements[0].elements[5].elements[0].elements[1].elements[0].text).split(' ');
+            const unixRange = [];
+            coefficients.forEach((val, i) => {
+                let value = val.replace(/[ "/]/g, '');
+                value = moment(value, moment.HTML5_FMT.DATETIME_LOCAL_MS).unix();
+                unixRange.push(value);
+            });
 
             this.setState({
+                coefficients: unixRange,
                 ranges: {
-                    longitude: {
-                        start: parseInt(minLongitude, 10),
-                        end: parseInt(maxLongitude, 10)
-                    },
-                    latitude: {
+                    [rangeKeys[0]]: {
                         start: parseInt(minLatitude, 10),
                         end: parseInt(maxLatitude, 10)
                     },
-                    unix: {
-                        start: moment(minUnix, moment.HTML5_FMT.DATETIME_LOCAL_MS).unix(),
-                        end: moment(maxUnix, moment.HTML5_FMT.DATETIME_LOCAL_MS).unix()
+                    [rangeKeys[1]]: {
+                        start: parseInt(minLongitude, 10),
+                        end: parseInt(maxLongitude, 10)
+                    },
+                    [rangeKeys[2]]: {
+                        start: 0,
+                        end: unixRange.length-1
                     }
                 },
                 values: {
-                    longitude: {
-                        start: parseInt(minLongitude, 10),
-                        end: parseInt(maxLongitude, 10)
-                    },
-                    latitude: {
+                    [rangeKeys[0]]: {
                         start: parseInt(minLatitude, 10),
                         end: parseInt(maxLatitude, 10)
                     },
-                    unix: {
-                        start: moment(minUnix, moment.HTML5_FMT.DATETIME_LOCAL_MS).unix(),
-                        end: moment(maxUnix, moment.HTML5_FMT.DATETIME_LOCAL_MS).unix()
+                    [rangeKeys[1]]: {
+                        start: parseInt(minLongitude, 10),
+                        end: parseInt(maxLongitude, 10)
+                    },
+                    [rangeKeys[2]]: {
+                        start: unixRange[0],
+                        end: unixRange[unixRange.length-1]
                     }
-                }
+                },
+                rangeKeys: rangeKeys
             }, () => {
                 this.onSaveNewRangeValues();
+                this.props.onRangeKeysLoad(this.state.rangeKeys);
             })
         }).catch(err => console.log(err))
     }
@@ -100,39 +85,29 @@ export default class SliderControlled extends Component {
         return moment.unix(unix).format('YYYY-MM-DD[T]00:00:00') + '.000Z';
     }
 
-    onLatitudeChange = (value) => {
+    onChange = (value, key) => {
         this.setState({
             values: {
                 ...this.state.values,
-                latitude: {
+                [key]: {
                     start: value[0],
                     end: value[1],
                 }
             }
         });
-    };
-    onLongitudeChange = (value) => {
+    }
+
+    onUnixChange = (value, key) => {
         this.setState({
             values: {
                 ...this.state.values,
-                longitude: {
-                    start: value[0],
-                    end: value[1],
+                [key]: {
+                    start: this.state.coefficients[value[0]],
+                    end: this.state.coefficients[value[1]],
                 }
             }
         });
-    };
-    onUnixChange = (value) => {
-        this.setState({
-            values: {
-                ...this.state.values,
-                unix: {
-                    start: value[0],
-                    end: value[1],
-                }
-            }
-        });
-    };
+    }
 
     onSaveNewRangeValues = () => {
         const { values } = this.state;
@@ -147,52 +122,56 @@ export default class SliderControlled extends Component {
     }
 
     render() {
-        const { ranges, values } = this.state;
+        const { ranges, values, rangeKeys } = this.state;
 
+        if (!rangeKeys) {
+            return <div className="sliderContainer">Loading sliders...</div>;
+        }
         return (<div className="sliderContainer">
             <div className='sliderWrapper'>
                 <Range
                     allowCross={false}
-                    min={ranges.longitude.start}
-                    max={ranges.longitude.end}
-                    value={[values.longitude.start, values.longitude.end]}
-                    onChange={this.onLongitudeChange}
+                    min={ranges[rangeKeys[0]].start}
+                    max={ranges[rangeKeys[0]].end}
+                    value={[values[rangeKeys[0]].start, values[rangeKeys[0]].end]}
+                    onChange={(values) => this.onChange(values, rangeKeys[0])}
                     onAfterChange={this.onSaveNewRangeValues}
                 />
             </div>
             <div>
-                <p className="valueText">Longitude start: {values.longitude.start}</p>
-                <p className="valueText">Longitude end: {values.longitude.end}</p>
+                <p className="valueText">{rangeKeys[0]} start: {values[rangeKeys[0]].start}</p>
+                <p className="valueText">{rangeKeys[0]} end: {values[rangeKeys[0]].end}</p>
             </div>
 
             <div className='sliderWrapper'>
                 <Range
                     allowCross={false}
-                    min={ranges.latitude.start}
-                    max={ranges.latitude.end}
-                    value={[values.latitude.start, values.latitude.end]}
-                    onChange={this.onLatitudeChange}
+                    min={ranges[rangeKeys[1]].start}
+                    max={ranges[rangeKeys[1]].end}
+                    value={[values[rangeKeys[1]].start, values[rangeKeys[1]].end]}
+                    onChange={(values) => this.onChange(values, rangeKeys[1])}
                     onAfterChange={this.onSaveNewRangeValues}
                 />
             </div>
             <div>
-                <p className="valueText">Latitude start: {values.latitude.start}</p>
-                <p className="valueText">Latitude end: {values.latitude.end}</p>
+                <p className="valueText">{rangeKeys[1]} start: {values[rangeKeys[1]].start}</p>
+                <p className="valueText">{rangeKeys[1]} end: {values[rangeKeys[1]].end}</p>
             </div>
 
             <div className='sliderWrapper'>
                 <Range
-                    min={ranges.unix.start}
-                    max={ranges.unix.end}
-                    value={[values.unix.start, values.unix.end]}
-                    onChange={this.onUnixChange}
+                    allowCross={false}
+                    min={ranges[rangeKeys[2]].start}
+                    max={ranges[rangeKeys[2]].end}
+                    onChange={(value) => this.onUnixChange(value, rangeKeys[2])}
                     onAfterChange={this.onSaveNewRangeValues}
                 />
             </div>
             <div>
-                <p className="valueText">Unix start: {this.getFormattedUnix(values.unix.start)}</p>
-                <p className="valueText">Unix end: { this.getFormattedUnix(values.unix.end)}</p>
+                <p className="valueText">{rangeKeys[2]} start: {this.getFormattedUnix(values[rangeKeys[2]].start)}</p>
+                <p className="valueText">{rangeKeys[2]} end: {this.getFormattedUnix(values[rangeKeys[2]].end)}</p>
             </div>
+
         </div>);
     }
 }

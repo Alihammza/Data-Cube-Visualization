@@ -26,13 +26,18 @@ class App extends Component {
             query: defaultQuery,
             format: defaultFormat,
             keyForSet: defaultKeyForSet,
-            ranges: null
+            ranges: null,
+            rangeKeys: null,
         };
     }
 
     handleRangeValuesChange = (values) => {
         this.setState({ ranges: values });
     }
+
+    handleRangeKeysLoad = (keys) => {
+        this.setState({ rangeKeys: keys });
+    };
 
     handleSubmit = (data) => {
         this.setState(data);
@@ -52,6 +57,7 @@ class App extends Component {
                         query={this.state.query}
                         format={this.state.format}
                         onRangeValuesChange={this.handleRangeValuesChange}
+                        onRangeKeysLoad={this.handleRangeKeysLoad}
                     />
                 </div>
                 <div className="cube-container col-sm-12 col-md-9">
@@ -60,6 +66,7 @@ class App extends Component {
                         keyForSet={this.state.keyForSet}
                         format={this.state.format}
                         ranges={this.state.ranges}
+                        rangeKeys={this.state.rangeKeys}
                     />
                 </div>
             </div>
