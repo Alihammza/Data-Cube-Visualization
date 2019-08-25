@@ -51,19 +51,19 @@ class Cube extends Component {
         var fetchQuery = ""
         if (this.props.type === 'wcs') {
             fetchQuery = API + this.props.query + '&' + this.props.format;
-            // fetchQuery = fetchQuery.replace('GetCoverage', 'DescribeCoverage');
+            fetchQuery = fetchQuery.replace('GetCoverage', 'DescribeCoverage');
             axios.get(fetchQuery).then(resp => {
                 const xmltojson = convert.xml2json(resp.data, {
                     compact: false,
                     spaces: 4
                 });
                 const json = JSON.parse(xmltojson);
-                const set1 = json.elements[0].elements[1].elements[0].elements[3].elements[0].elements[0].elements[0].text;
-                const set2 = json.elements[0].elements[1].elements[0].elements[4].elements[0].elements[0].elements[0].text;
+                const set1 = json.elements[0].elements[0].elements[4].elements[0].elements[3].elements[0].elements[0].elements[0].text;
+                const set2 = json.elements[0].elements[0].elements[4].elements[0].elements[4].elements[0].elements[0].elements[0].text;
 
-                const high = json.elements[0].elements[1].elements[0].elements[0].elements[0].elements[1].elements[0].text;
-                const low = json.elements[0].elements[1].elements[0].elements[0].elements[0].elements[0].elements[0].text;
-
+                const high = json.elements[0].elements[0].elements[4].elements[0].elements[0].elements[0].elements[1].elements[0].text;
+                const low = json.elements[0].elements[0].elements[4].elements[0].elements[0].elements[0].elements[0].elements[0].text;
+                
                 const highValues = high.split(' ');
                 const lowValues = low.split(' ');
 
@@ -164,12 +164,8 @@ class Cube extends Component {
         this.cube = cube;
         this.controls = controls;
 
-        if (this.props.type === 'wcs') {
-            window.addEventListener('resize', this.handleResize);
-        }
-        else {
-            console.log(window.removeEventListener('resize', this.handleResize));
-        }
+
+        window.addEventListener('resize', this.handleResize);
 
         this.mount.appendChild(this.renderer.domElement);
         this.start();
@@ -268,6 +264,7 @@ class Cube extends Component {
     }
 
     handleResize = () => {
+        if (!this.mount) return;
         const width = this.mount.clientWidth
         const height = this.mount.clientHeight
         this.renderer.setSize(width, height)
@@ -277,7 +274,7 @@ class Cube extends Component {
 
     start = () => {
         if (!this.frameId) {
-            this.frameId = requestAnimationFrame(this.animate)
+            this.frameId = requestAnimationFrame(this.animate.bind(this))
         }
     }
 
@@ -288,7 +285,7 @@ class Cube extends Component {
     animate = () => {
         this.controls.update();
         this.renderScene()
-        this.frameId = window.requestAnimationFrame(this.animate)
+        this.frameId = window.requestAnimationFrame(this.animate.bind(this))
     }
 
     renderScene = () => {
